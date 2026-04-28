@@ -1,6 +1,55 @@
 import React, { useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
-import { Camera, MapPin, AlertCircle } from 'lucide-react';
+import { Camera, MapPin, AlertCircle, Sparkles } from 'lucide-react';
+
+// Simulated AI image analysis function - maps filename to category key
+function analyzeImage(fileName) {
+  const lowerName = fileName.toLowerCase();
+  
+  // Map filename keywords to category keys
+  if (lowerName.includes('smoke') || lowerName.includes('fire')) {
+    return { category: 'CONTAMINATED_WATER', confidence: 80 };
+  }
+  if (lowerName.includes('water') || lowerName.includes('flood') || lowerName.includes('wet')) {
+    return { category: 'CONTAMINATED_WATER', confidence: 80 };
+  }
+  if (lowerName.includes('dirty') || lowerName.includes('contamination')) {
+    return { category: 'CONTAMINATED_WATER', confidence: 85 };
+  }
+  if (lowerName.includes('drain') || lowerName.includes('sewage')) {
+    return { category: 'OPEN_DRAINAGE', confidence: 80 };
+  }
+  if (lowerName.includes('crack') || lowerName.includes('damage') || lowerName.includes('break')) {
+    return { category: 'BROKEN_FACILITY', confidence: 75 };
+  }
+  if (lowerName.includes('soap') || lowerName.includes('hygiene')) {
+    return { category: 'LACK_SOAP', confidence: 70 };
+  }
+  if (lowerName.includes('accident') || lowerName.includes('crash')) {
+    return { category: 'OTHER', confidence: 65 };
+  }
+  
+  return null; // No detection
+}
+
+// Get display info for detected category
+function getCategoryDisplay(categoryKey) {
+  const icons = {
+    'CONTAMINATED_WATER': '💧',
+    'BROKEN_FACILITY': '🚽',
+    'OPEN_DRAINAGE': '🕳️',
+    'LACK_SOAP': '🧼',
+    'OTHER': '⚠️'
+  };
+  const names = {
+    'CONTAMINATED_WATER': 'Contaminated Water',
+    'BROKEN_FACILITY': 'Broken Facility',
+    'OPEN_DRAINAGE': 'Open Drainage',
+    'LACK_SOAP': 'Lack of Soap',
+    'OTHER': 'Other Issue'
+  };
+  return { icon: icons[categoryKey] || '🤖', name: names[categoryKey] || categoryKey };
+}
 
 export default function ReportForm() {
   const { addReport, CATEGORIES } = useApp();
@@ -8,6 +57,8 @@ export default function ReportForm() {
   const [description, setDescription] = useState('');
   const [address, setAddress] = useState('');
   const [photo, setPhoto] = useState(null);
+  const [photoName, setPhotoName] = useState('');
+  const [aiDetection, setAiDetection] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -17,6 +68,16 @@ export default function ReportForm() {
       const reader = new FileReader();
       reader.onloadend = () => {
         setPhoto(reader.result);
+        setPhotoName(file.name);
+        
+        // Run AI analysis simulation
+        const detection = analyzeImage(file.name);
+        setAiDetection(detection);
+        
+        // Auto-select the detected category if one was found
+        if (detection && !category) {
+          setCategory(detection.category);
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -146,6 +207,21 @@ export default function ReportForm() {
                 </>
               )}
             </div>
+            
+            {/* AI Detection Result */}
+            {aiDetection && (
+              <div className="mt-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border-2 border-purple-200 flex items-center gap-3">
+                <Sparkles className="text-purple-600 flex-shrink-0" size={20} />
+                <div>
+                  <p className="text-sm font-semibold text-purple-800">
+                    🤖 AI detected: {getCategoryDisplay(aiDetection.category).name} (confidence {aiDetection.confidence}%)
+                  </p>
+                  <p className="text-xl">{getCategoryDisplay(aiDetection.category).icon}</p>
+                  {!category && <p className="text-xs text-purple-600 mt-1">Category auto-selected</p>}
+                  {category === aiDetection.category && <p className="text-xs text-green-600 mt-1">✓ Category selected</p>}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Submit Button */}
