@@ -1,0 +1,1891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AquaWatch - Water & Sanitation Monitoring | Bengaluru</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        body { margin: 0; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdf4 100%); min-height: 100vh; }
+        
+        /* Smooth Animations */
+        .fade-in { animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .slide-up { animation: slideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .scale-in { animation: scaleIn 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        @keyframes scaleIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+        
+        .float { animation: float 3s ease-in-out infinite; }
+        @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
+        
+        .glow { animation: glow 2s ease-in-out infinite alternate; }
+        @keyframes glow { from { box-shadow: 0 0 5px rgba(6, 182, 212, 0.3); } to { box-shadow: 0 0 20px rgba(6, 182, 212, 0.6); } }
+        
+        .leaflet-container { height: 500px; width: 100%; border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15); }
+        .custom-marker { width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; border: 4px solid white; box-shadow: 0 10px 25px rgba(0,0,0,0.3); transition: transform 0.3s ease; cursor: pointer; }
+        .custom-marker:hover { transform: scale(1.2) rotate(10deg); }
+        
+        .glass { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.3); }
+        
+        .card { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .card:hover { transform: translateY(-8px) scale(1.02); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
+        
+        .nav-btn { position: relative; overflow: hidden; }
+        .nav-btn::after { content: ''; position: absolute; bottom: 0; left: 50%; width: 0; height: 3px; background: linear-gradient(90deg, #06b6d4, #3b82f6); transition: all 0.3s ease; transform: translateX(-50%); border-radius: 2px; }
+        .nav-btn:hover::after, .nav-btn.active::after { width: 60%; }
+        .nav-btn.active { background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(59, 130, 246, 0.2)); }
+        
+        .btn-primary { background: linear-gradient(135deg, #06b6d4, #0891b2); transition: all 0.3s ease; position: relative; overflow: hidden; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(6, 182, 212, 0.4); }
+        .btn-primary:active { transform: translateY(0); }
+        
+        .btn-secondary { background: linear-gradient(135deg, #6b7280, #4b5563); transition: all 0.3s ease; }
+        .btn-secondary:hover { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(107, 114, 128, 0.4); }
+        
+        .leaderboard-card { transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        .leaderboard-card:hover { transform: scale(1.05) rotate(1deg); }
+        
+        .badge { transition: all 0.3s ease; }
+        .badge:hover { transform: scale(1.3) rotate(-10deg); }
+        
+        .ripple { position: relative; overflow: hidden; }
+        .ripple::before { content: ''; position: absolute; top: 50%; left: 50%; width: 0; height: 0; background: rgba(255,255,255,0.3); border-radius: 50%; transform: translate(-50%, -50%); transition: width 0.6s, height 0.6s; }
+        .ripple:active::before { width: 300px; height: 300px; }
+        
+        /* Custom Popup Styles */
+        .leaflet-popup-content-wrapper { border-radius: 16px; padding: 0; overflow: hidden; }
+        .leaflet-popup-content { margin: 0; width: auto !important; }
+        .popup-image { width: 100%; max-width: 200px; height: 150px; object-fit: cover; border-radius: 12px; margin-bottom: 12px; }
+        .popup-no-image { width: 100%; max-width: 200px; height: 80px; background: #f3f4f6; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #6b7280; font-size: 12px; margin-bottom: 12px; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useContext, createContext, useRef } = React;
+
+        // Emergency Services Data
+        const emergencyServices = [
+            { id: 'es1', name: 'Victoria Hospital', type: 'hospital', lat: 12.9612, lng: 77.5750, phone: '080-2670 2295' },
+            { id: 'es2', name: 'Bangalore Medical College', type: 'hospital', lat: 12.9551, lng: 77.5845, phone: '080-2670 2311' },
+            { id: 'es3', name: 'Fire Station - City Market', type: 'fire', lat: 12.9618, lng: 77.5967, phone: '101' },
+            { id: 'es4', name: 'Fire Station - Richmond Town', type: 'fire', lat: 12.9847, lng: 77.6005, phone: '101' },
+            { id: 'es5', name: 'Police Station - MG Road', type: 'police', lat: 12.9758, lng: 77.6050, phone: '100' },
+            { id: 'es6', name: 'Police Station - Frazer Town', type: 'police', lat: 12.9875, lng: 77.6180, phone: '100' },
+            { id: 'es7', name: 'BBMP Emergency Control', type: 'bbmp', lat: 12.9784, lng: 77.5920, phone: '1926' },
+            { id: 'es8', name: 'St. Martha\'s Hospital', type: 'hospital', lat: 12.9685, lng: 77.5875, phone: '080-2227 6411' }
+        ];
+
+        const SERVICE_TYPES = {
+            hospital: { name: 'Hospital', icon: '🏥', color: '#ec4899' },
+            fire: { name: 'Fire Station', icon: '🚒', color: '#ef4444' },
+            police: { name: 'Police', icon: '🚔', color: '#3b82f6' },
+            bbmp: { name: 'BBMP', icon: '🏛️', color: '#8b5cf6' }
+        };
+
+        // Helper: Calculate distance between two points (Haversine formula)
+        function calculateDistance(lat1, lng1, lat2, lng2) {
+            const R = 6371; // Earth's radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                    Math.sin(dLng/2) * Math.sin(dLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Find nearest services
+        function findNearestServices(userLocation, maxResults = 3) {
+            const servicesWithDistance = emergencyServices.map(service => ({
+                ...service,
+                distance: calculateDistance(userLocation.lat, userLocation.lng, service.lat, service.lng)
+            }));
+            return servicesWithDistance.sort((a, b) => a.distance - b.distance).slice(0, maxResults);
+        }
+
+        // Calculate risk zones (cluster reports by proximity)
+        function calculateRiskZones(reports) {
+            const zones = [];
+            const processedIds = new Set();
+
+            reports.forEach(report => {
+                if (processedIds.has(report.id)) return;
+
+                const nearbyReports = reports.filter(r => {
+                    if (processedIds.has(r.id)) return false;
+                    const dist = calculateDistance(report.latitude, report.longitude, r.latitude, r.longitude);
+                    return dist <= 1; // Within 1km
+                });
+
+                if (nearbyReports.length >= 2) {
+                    nearbyReports.forEach(id => processedIds.add(id.id));
+                    const avgLat = nearbyReports.reduce((sum, r) => sum + r.latitude, 0) / nearbyReports.length;
+                    const avgLng = nearbyReports.reduce((sum, r) => sum + r.longitude, 0) / nearbyReports.length;
+
+                    let riskLevel = 'low';
+                    if (nearbyReports.length > 5) riskLevel = 'high';
+                    else if (nearbyReports.length > 3) riskLevel = 'medium';
+
+                    zones.push({
+                        lat: avgLat,
+                        lng: avgLng,
+                        count: nearbyReports.length,
+                        riskLevel,
+                        reports: nearbyReports
+                    });
+                }
+            });
+
+            return zones;
+        }
+
+        // Detect clusters of similar reports
+        function detectClusters(reports) {
+            const clusters = {};
+            reports.forEach(report => {
+                const key = report.crisisType || report.category;
+                if (!clusters[key]) clusters[key] = [];
+                clusters[key].push(report);
+            });
+
+            const detectedClusters = [];
+            Object.entries(clusters).forEach(([type, typeReports]) => {
+                const processed = new Set();
+                typeReports.forEach(report => {
+                    if (processed.has(report.id)) return;
+                    const nearby = typeReports.filter(r => {
+                        if (processed.has(r.id)) return false;
+                        return calculateDistance(report.latitude, report.longitude, r.latitude, r.longitude) <= 0.5;
+                    });
+                    if (nearby.length >= 2) {
+                        nearby.forEach(r => processed.add(r.id));
+                        detectedClusters.push({
+                            type,
+                            count: nearby.length,
+                            center: {
+                                lat: nearby.reduce((s, r) => s + r.latitude, 0) / nearby.length,
+                                lng: nearby.reduce((s, r) => s + r.longitude, 0) / nearby.length
+                            }
+                        });
+                    }
+                });
+            });
+
+            return detectedClusters;
+        }
+
+        // Check nearby alerts
+        function checkNearbyAlerts(userLocation, reports) {
+            return reports.filter(r => {
+                const dist = calculateDistance(userLocation.lat, userLocation.lng, r.latitude, r.longitude);
+                return dist <= 1 && (r.severity === 'high' || r.severity === 'medium');
+            });
+        }
+
+        // Simulated AI image analysis
+        function analyzeImage(fileName) {
+            const lowerName = fileName.toLowerCase();
+            if (lowerName.includes('smoke') || lowerName.includes('fire') || lowerName.includes('flame')) {
+                return { type: 'Fire', confidence: 85, icon: '🔥' };
+            }
+            if (lowerName.includes('water') || lowerName.includes('flood') || lowerName.includes('wet')) {
+                return { type: 'Flood', confidence: 80, icon: '🌊' };
+            }
+            if (lowerName.includes('crack') || lowerName.includes('break') || lowerName.includes('damage')) {
+                return { type: 'Building Damage', confidence: 75, icon: '🏚️' };
+            }
+            if (lowerName.includes('sewage') || lowerName.includes('drain') || lowerName.includes('dirty')) {
+                return { type: 'Open Drainage', confidence: 78, icon: '🕳️' };
+            }
+            return { type: 'General Issue', confidence: 60, icon: '⚠️' };
+        }
+
+        // Bengaluru Sample Data with placeholder photos
+        const initialReports = [
+            { id: '1', category: 'CONTAMINATED_WATER', crisisType: 'water', description: 'Tap water appears brown and has strange odor. Residents reporting stomach issues for past week.', latitude: 12.9716, longitude: 77.5946, address: 'MG Road, Bengaluru', status: 'OPEN', severity: 'high', riskScore: 88, reporterName: 'Priya Sharma', photo: null, timestamp: Date.now() - 86400000 },
+            { id: '2', category: 'OPEN_DRAINAGE', crisisType: 'water', description: 'Open sewage near apartment complex. Major health hazard for children playing nearby.', latitude: 12.9352, longitude: 77.6245, address: 'Whitefield, Bengaluru', status: 'INVESTIGATING', severity: 'medium', riskScore: 75, reporterName: 'Rajesh Kumar', photo: null, timestamp: Date.now() - 172800000 },
+            { id: '3', category: 'BROKEN_FACILITY', crisisType: 'water', description: 'Public toilet at metro station has been non-functional for 3 weeks. Very unsanitary conditions.', latitude: 12.9784, longitude: 77.5718, address: 'Koramangala, Bengaluru', status: 'OPEN', severity: 'medium', riskScore: 68, reporterName: 'Anita Verma', photo: null, timestamp: Date.now() - 259200000 },
+            { id: '4', category: 'LACK_SOAP', crisisType: 'water', description: 'School washroom completely lacks soap. Children cannot practice basic hygiene.', latitude: 12.9548, longitude: 77.6148, address: 'Indiranagar, Bengaluru', status: 'RESOLVED', severity: 'low', riskScore: 42, reporterName: 'Priya Sharma', photo: null, timestamp: Date.now() - 345600000 },
+            { id: '5', category: 'CONTAMINATED_WATER', crisisType: 'water', description: 'Industrial waste being dumped into Bellandur lake. Water turning green and smelling bad.', latitude: 12.9542, longitude: 77.6746, address: 'Bellandur, Bengaluru', status: 'OPEN', severity: 'high', riskScore: 95, reporterName: 'Mohammed Ali', photo: null, timestamp: Date.now() - 432000000 },
+            { id: '6', category: 'OPEN_DRAINAGE', crisisType: 'water', description: 'Clogged drainage causing water stagnation. Mosquitoes breeding rapidly in area.', latitude: 13.0013, longitude: 77.5613, address: 'Hebbal, Bengaluru', status: 'OPEN', severity: 'medium', riskScore: 72, reporterName: 'Sneha Reddy', photo: null, timestamp: Date.now() - 518400000 },
+            { id: '7', category: 'BROKEN_FACILITY', crisisType: 'water', description: 'Public water tank at community center broken. Residents have no water supply for 5 days.', latitude: 12.9105, longitude: 77.6468, address: 'HSR Layout, Bengaluru', status: 'INVESTIGATING', severity: 'medium', riskScore: 65, reporterName: 'Vikram Singh', photo: null, timestamp: Date.now() - 604800000 },
+            { id: '8', category: 'OTHER', crisisType: 'fire', description: 'Building fire reported in basement parking. Smoke visible from upper floors.', latitude: 12.9756, longitude: 77.6050, address: 'Brigade Road, Bengaluru', status: 'OPEN', severity: 'high', riskScore: 98, reporterName: 'Arjun Patel', photo: null, timestamp: Date.now() - 3600000 },
+            { id: '9', category: 'OTHER', crisisType: 'medical', description: 'Elderly person collapsed near metro station. Needs immediate medical attention.', latitude: 12.9850, longitude: 77.6040, address: 'Mallicya Metro Station', status: 'OPEN', severity: 'high', riskScore: 100, reporterName: 'Keerthi Raj', photo: null, timestamp: Date.now() - 1800000 },
+            { id: '10', category: 'OTHER', crisisType: 'flood', description: 'Heavy rain causing waterlogging. Road impassable for vehicles.', latitude: 12.9350, longitude: 77.6300, address: 'ITPL Main Road, Whitefield', status: 'OPEN', severity: 'high', riskScore: 92, reporterName: 'Suresh N', photo: null, timestamp: Date.now() - 7200000 }
+        ];
+
+        // Crisis Types with icons and colors
+        const CRISIS_TYPES = {
+            water: { name: 'WASH Issue', icon: '💧', color: '#06b6d4' },
+            fire: { name: 'Fire', icon: '🔥', color: '#ef4444' },
+            medical: { name: 'Medical Emergency', icon: '🏥', color: '#ec4899' },
+            flood: { name: 'Flood', icon: '🌊', color: '#3b82f6' },
+            gas_leak: { name: 'Gas Leak', icon: '☢️', color: '#84cc16' },
+            electrical: { name: 'Electrical Hazard', icon: '⚡', color: '#eab308' },
+            accident: { name: 'Road Accident', icon: '🚗', color: '#f97316' },
+            building: { name: 'Building Damage', icon: '🏚️', color: '#6b7280' }
+        };
+
+        // Severity levels
+        const SEVERITY_LEVELS = {
+            low: { name: 'Low', color: '#22c55e', bgColor: 'bg-green-100', textColor: 'text-green-800', borderColor: 'border-green-500' },
+            medium: { name: 'Medium', color: '#eab308', bgColor: 'bg-yellow-100', textColor: 'text-yellow-800', borderColor: 'border-yellow-500' },
+            high: { name: 'High', color: '#ef4444', bgColor: 'bg-red-100', textColor: 'text-red-800', borderColor: 'border-red-500' }
+        };
+
+        const CATEGORIES = {
+            CONTAMINATED_WATER: { name: 'Contaminated Water', icon: '💧', color: '#ef4444', riskWeight: 10 },
+            BROKEN_FACILITY: { name: 'Broken Facility', icon: '🚽', color: '#f97316', riskWeight: 7 },
+            OPEN_DRAINAGE: { name: 'Open Drainage', icon: '🕳️', color: '#eab308', riskWeight: 8 },
+            LACK_SOAP: { name: 'Lack of Soap', icon: '🧼', color: '#8b5cf6', riskWeight: 5 },
+            OTHER: { name: 'Other Issue', icon: '⚠️', color: '#6b7280', riskWeight: 4 }
+        };
+
+        const STATUSES = {
+            OPEN: { name: 'Open', bgColor: 'bg-red-100', textColor: 'text-red-800', borderColor: 'border-red-500' },
+            INVESTIGATING: { name: 'Investigating', bgColor: 'bg-orange-100', textColor: 'text-orange-800', borderColor: 'border-orange-500' },
+            RESOLVED: { name: 'Resolved', bgColor: 'bg-green-100', textColor: 'text-green-800', borderColor: 'border-green-500' }
+        };
+
+        const BADGES = {
+            FIRST_REPORTER: { name: 'First Reporter', icon: '🌊', description: 'Submitted your first report' },
+            WATER_GUARDIAN: { name: 'Water Guardian', icon: '🛡️', description: 'Submitted 5 reports' },
+            CLEAN_STREETS: { name: 'Clean Streets', icon: '🏆', description: 'Submitted 10 reports' },
+            LIFESAVER: { name: 'Lifesaver', icon: '💉', description: 'Submitted 20 reports' }
+        };
+
+        // Image compression helper (max 500KB)
+        function compressImage(file, maxSizeKB = 500, quality = 0.7) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        
+                        const maxDim = 800;
+                        if (width > maxDim || height > maxDim) {
+                            if (width > height) {
+                                height = (height / width) * maxDim;
+                                width = maxDim;
+                            } else {
+                                width = (width / height) * maxDim;
+                                height = maxDim;
+                            }
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        let base64 = canvas.toDataURL('image/jpeg', quality);
+                        
+                        while (base64.length > maxSizeKB * 1024 * 1.37 && quality > 0.2) {
+                            quality -= 0.1;
+                            base64 = canvas.toDataURL('image/jpeg', quality);
+                        }
+                        
+                        resolve(base64);
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // Context
+        const AppContext = createContext();
+
+        function AppProvider({ children }) {
+            const [reports, setReports] = useState(() => {
+                const saved = localStorage.getItem('aquawatch_reports_bengaluru');
+                return saved ? JSON.parse(saved) : initialReports;
+            });
+            const [currentUser, setCurrentUser] = useState(() => {
+                const saved = localStorage.getItem('aquawatch_user_profile');
+                return saved ? JSON.parse(saved) : { name: 'Priya Sharma', email: 'priya.sharma@email.com', phone: '+91 98765 43210', location: 'Bengaluru, Karnataka', points: 20, badges: ['FIRST_REPORTER', 'WATER_GUARDIAN'], reportsCount: 2, joinedDate: '2024-01-15', bio: 'Passionate about clean water for all! 🌊' };
+            });
+            const [toast, setToast] = useState(null);
+            const [sosActive, setSosActive] = useState(false);
+            const [sosLocation, setSosLocation] = useState(null);
+            const [sosLoading, setSosLoading] = useState(false);
+
+            useEffect(() => { 
+                localStorage.setItem('aquawatch_reports_bengaluru', JSON.stringify(reports)); 
+            }, [reports]);
+
+            useEffect(() => { 
+                localStorage.setItem('aquawatch_user_profile', JSON.stringify(currentUser)); 
+            }, [currentUser]);
+
+            const showToast = (message, type = 'success') => {
+                setToast({ message, type });
+                setTimeout(() => setToast(null), 3000);
+            };
+
+            const updateUser = (updates) => {
+                setCurrentUser(prev => ({ ...prev, ...updates }));
+                showToast('✅ Profile updated successfully!', 'info');
+            };
+
+            const addReport = (reportData) => {
+                const newReport = { 
+                    ...reportData, 
+                    id: Date.now().toString(), 
+                    status: 'OPEN', 
+                    riskScore: Math.floor(Math.random() * 40) + 60, 
+                    reporterName: currentUser.name 
+                };
+                setReports([newReport, ...reports]);
+                setCurrentUser(prev => ({ ...prev, points: prev.points + 10, reportsCount: prev.reportsCount + 1 }));
+                showToast('🎉 Report submitted! +10 points earned!', 'success');
+            };
+
+            const updateStatus = (id, status) => {
+                setReports(reports.map(r => r.id === id ? { ...r, status } : r));
+                showToast(`Status updated to ${STATUSES[status].name}!`, 'info');
+            };
+
+            // SOS Functions
+            const triggerSOS = () => {
+                setSosLoading(true);
+                
+                if (!navigator.geolocation) {
+                    showToast('⚠️ Geolocation not supported by your browser', 'error');
+                    setSosLoading(false);
+                    return;
+                }
+
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const location = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude,
+                            timestamp: Date.now()
+                        };
+                        setSosLocation(location);
+                        
+                        // Save SOS event to localStorage
+                        const sosEvents = JSON.parse(localStorage.getItem('aquawatch_sos_events') || '[]');
+                        const newSOSEvent = {
+                            id: Date.now().toString(),
+                            type: 'SOS',
+                            location: location,
+                            userName: currentUser.name,
+                            timestamp: Date.now()
+                        };
+                        sosEvents.unshift(newSOSEvent);
+                        localStorage.setItem('aquawatch_sos_events', JSON.stringify(sosEvents.slice(0, 10)));
+                        
+                        setSosActive(true);
+                        setSosLoading(false);
+                        showToast('🚨 SOS activated! Help is on the way!', 'success');
+                    },
+                    (error) => {
+                        console.error('Geolocation error:', error);
+                        setSosLoading(false);
+                        showToast('⚠️ Could not get your location. Please enable GPS.', 'error');
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            };
+
+            const closeSOS = () => {
+                setSosActive(false);
+                setSosLocation(null);
+            };
+
+            return (
+                <AppContext.Provider value={{ reports, addReport, updateStatus, currentUser, updateUser, CATEGORIES, STATUSES, BADGES, CRISIS_TYPES, SEVERITY_LEVELS, showToast, sosActive, sosLocation, sosLoading, triggerSOS, closeSOS }}>
+                    {children}
+                    {toast && (
+                        <div className={`fixed top-6 right-6 px-6 py-3 rounded-xl shadow-2xl z-50 scale-in ${toast.type === 'success' ? 'bg-gradient-to-r from-green-500 to-emerald-500' : toast.type === 'error' ? 'bg-gradient-to-r from-red-500 to-red-600' : 'bg-gradient-to-r from-blue-500 to-cyan-500'} text-white font-semibold`}>
+                            {toast.message}
+                        </div>
+                    )}
+                    
+                    {/* SOS Modal */}
+                    {sosActive && (
+                        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+                            <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 scale-in">
+                                <div className="text-center">
+                                    <div className="w-24 h-24 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+                                        <span className="text-5xl">🚨</span>
+                                    </div>
+                                    <h2 className="text-3xl font-bold text-gray-800 mb-2">SOS Alert Active!</h2>
+                                    <p className="text-gray-600 mb-6">Your location has been shared with emergency services.</p>
+                                    
+                                    {sosLocation && (
+                                        <div className="bg-red-50 rounded-xl p-4 mb-6 border-2 border-red-200">
+                                            <p className="text-sm text-red-700 font-semibold mb-2">📍 Your Location:</p>
+                                            <p className="text-red-800 font-bold">
+                                                {sosLocation.lat.toFixed(6)}, {sosLocation.lng.toFixed(6)}
+                                            </p>
+                                            <p className="text-xs text-red-600 mt-2">
+                                                {new Date(sosLocation.timestamp).toLocaleTimeString()}
+                                            </p>
+                                        </div>
+                                    )}
+                                    
+                                    <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-xl p-4 mb-6 border border-red-200">
+                                        <h3 className="font-bold text-red-800 mb-2">🆘 Emergency Contacts</h3>
+                                        <div className="space-y-2 text-left">
+                                            <div className="flex justify-between items-center p-2 bg-white rounded-lg">
+                                                <span className="text-gray-700 font-medium">Police</span>
+                                                <span className="text-red-600 font-bold">100</span>
+                                            </div>
+                                            <div className="flex justify-between items-center p-2 bg-white rounded-lg">
+                                                <span className="text-gray-700 font-medium">Ambulance</span>
+                                                <span className="text-red-600 font-bold">108</span>
+                                            </div>
+                                            <div className="flex justify-between items-center p-2 bg-white rounded-lg">
+                                                <span className="text-gray-700 font-medium">Fire Brigade</span>
+                                                <span className="text-red-600 font-bold">101</span>
+                                            </div>
+                                            <div className="flex justify-between items-center p-2 bg-white rounded-lg">
+                                                <span className="text-gray-700 font-medium">BBMP Emergency</span>
+                                                <span className="text-red-600 font-bold">1926</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <button 
+                                        onClick={closeSOS}
+                                        className="w-full py-4 bg-gradient-to-r from-red-500 to-red-600 text-white font-bold text-lg rounded-xl shadow-lg hover:from-red-600 hover:to-red-700 transition-all"
+                                    >
+                                        I've Received Help - Cancel SOS
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* SOS Button */}
+                    <button
+                        onClick={triggerSOS}
+                        disabled={sosLoading}
+                        className="fixed bottom-24 right-6 w-16 h-16 bg-gradient-to-br from-red-500 to-red-600 text-white rounded-full shadow-2xl z-40 flex items-center justify-center hover:from-red-600 hover:to-red-700 transition-all transform hover:scale-110 disabled:opacity-50"
+                        title="Emergency SOS"
+                    >
+                        {sosLoading ? (
+                            <span className="animate-spin text-2xl">⏳</span>
+                        ) : (
+                            <span className="text-2xl">🚨</span>
+                        )}
+                    </button>
+                </AppContext.Provider>
+            );
+        }
+
+        // Components
+        function Header({ activeTab, setActiveTab }) {
+            const { currentUser, BADGES } = useContext(AppContext);
+            const tabs = [
+                { id: 'map', label: '🗺️ Map', icon: '🗺️' },
+                { id: 'report', label: '📝 Report', icon: '📝' },
+                { id: 'dashboard', label: '📊 Dashboard', icon: '📊' },
+                { id: 'leaderboard', label: '🏆 Leaderboard', icon: '🏆' },
+                { id: 'chat', label: '💬 Chat', icon: '💬' },
+                { id: 'admin', label: '🔐 Admin', icon: '🔐' },
+                { id: 'profile', label: '👤 Profile', icon: '👤' }
+            ];
+
+            return (
+                <header className="glass shadow-2xl sticky top-0 z-50 fade-in">
+                    <div className="max-w-7xl mx-auto px-4 py-4">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center space-x-4">
+                                <div className="relative">
+                                    <span className="text-5xl float">🌊</span>
+                                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full animate-pulse"></div>
+                                </div>
+                                <div>
+                                    <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">AquaWatch</h1>
+                                    <p className="text-sm text-gray-600 font-medium">Bengaluru Water & Sanitation Monitoring</p>
+                                </div>
+                            </div>
+                            <div className="glass rounded-2xl px-5 py-3 flex items-center space-x-4 glow">
+                                <div className="text-right">
+                                    <p className="text-sm font-semibold text-gray-800">{currentUser.name}</p>
+                                    <p className="text-lg font-bold bg-gradient-to-r from-cyan-500 to-blue-500 bg-clip-text text-transparent">{currentUser.points} pts</p>
+                                </div>
+                                <div className="flex space-x-2">
+                                    {currentUser.badges.map((b, i) => <span key={i} className="text-2xl badge cursor-pointer" title={BADGES[b]?.name}>{BADGES[b]?.icon}</span>)}
+                                </div>
+                            </div>
+                        </div>
+                        <nav className="flex space-x-2 overflow-x-auto pb-1">
+                            {tabs.map(tab => (
+                                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                                    className={`nav-btn px-5 py-2.5 rounded-xl font-semibold whitespace-nowrap transition-all duration-300 ${activeTab === tab.id ? 'active text-cyan-600' : 'text-gray-700 hover:text-cyan-500 hover:bg-cyan-50'}`}>
+                                    <span className="mr-2">{tab.icon}</span> {tab.label}
+                                </button>
+                            ))}
+                        </nav>
+                    </div>
+                </header>
+            );
+        }
+
+        function MapView() {
+            const { reports, CATEGORIES, STATUSES, CRISIS_TYPES } = useContext(AppContext);
+            const mapRef = useRef(null);
+            const markersRef = useRef([]);
+
+            useEffect(() => {
+                if (!mapRef.current) {
+                    mapRef.current = L.map('map', { zoomControl: false }).setView([12.9716, 77.5946], 12);
+                    L.control.zoom({ position: 'topright' }).addTo(mapRef.current);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap contributors',
+                        maxZoom: 19
+                    }).addTo(mapRef.current);
+                }
+
+                markersRef.current.forEach(m => m.remove());
+                markersRef.current = [];
+
+                reports.forEach((report, index) => {
+                    const cat = CATEGORIES[report.category] || CATEGORIES.OTHER;
+                    const crisis = CRISIS_TYPES[report.crisisType] || CRISIS_TYPES.water;
+                    const severity = SEVERITY_LEVELS[report.severity] || SEVERITY_LEVELS.medium;
+                    const statusColor = report.status === 'RESOLVED' ? '#22c55e' : crisis.color;
+                    
+                    const icon = L.divIcon({
+                        html: `<div class="custom-marker" style="background: ${statusColor}; animation-delay: ${index * 0.1}s">${crisis.icon}</div>`,
+                        className: '',
+                        iconSize: [50, 50],
+                        iconAnchor: [25, 25],
+                        popupAnchor: [0, -25]
+                    });
+
+                    const photoHtml = report.photo 
+                        ? `<img src="${report.photo}" alt="Report photo" class="popup-image" />`
+                        : `<div class="popup-no-image">📷 No photo attached</div>`;
+
+                    const timestamp = report.timestamp ? new Date(report.timestamp).toLocaleString() : 'N/A';
+
+                    const marker = L.marker([report.latitude, report.longitude], { icon })
+                        .addTo(mapRef.current)
+                        .bindPopup(`
+                            <div class="p-3 min-w-[280px]">
+                                ${photoHtml}
+                                <div class="flex items-center justify-between mb-3">
+                                    <span class="text-3xl">${crisis.icon}</span>
+                                    <div class="flex flex-col gap-1 items-end">
+                                        <span class="px-3 py-1 rounded-full text-xs font-bold ${STATUSES[report.status].bgColor} ${STATUSES[report.status].textColor}">${STATUSES[report.status].name}</span>
+                                        <span class="px-3 py-1 rounded-full text-xs font-bold ${severity.bgColor} ${severity.textColor}">${severity.name} Severity</span>
+                                    </div>
+                                </div>
+                                <h3 class="font-bold text-lg text-gray-800">${cat.name}</h3>
+                                <p class="text-sm text-gray-600 mt-2">${report.description}</p>
+                                <div class="mt-3 pt-3 border-t space-y-1 text-sm text-gray-600">
+                                    <p class="flex items-center gap-2">📍 <span class="font-semibold text-gray-800">${report.address}</span></p>
+                                    <p class="flex items-center gap-2">👤 ${report.reporterName}</p>
+                                    <p class="flex items-center gap-2">⏰ ${timestamp}</p>
+                                    <p class="flex items-center gap-2">📊 Risk Score: <span class="font-bold ${report.riskScore >= 70 ? 'text-red-600' : report.riskScore >= 40 ? 'text-orange-600' : 'text-green-600'}">${report.riskScore}/100</span></p>
+                                </div>
+                            </div>
+                        `, { className: 'custom-popup', maxWidth: 320 });
+                    markersRef.current.push(marker);
+                });
+            }, [reports]);
+
+            return (
+                <div className="space-y-6">
+                    <div className="glass rounded-2xl shadow-xl p-6 scale-in">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center space-x-3">
+                                <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-xl flex items-center justify-center shadow-lg">
+                                    <span className="text-2xl">🗺️</span>
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-bold text-gray-800">Bengaluru Crisis Map</h2>
+                                    <p className="text-sm text-gray-600 font-medium">Click markers to view report details{reports.some(r => r.photo) ? ' (with photos!)' : ''}</p>
+                                </div>
+                            </div>
+                            <div className="flex flex-wrap gap-3">
+                                <span className="px-4 py-2 rounded-full bg-red-50 text-red-700 font-semibold text-sm flex items-center gap-2 border border-red-200">
+                                    <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>Open: {reports.filter(r => r.status === 'OPEN').length}
+                                </span>
+                                <span className="px-4 py-2 rounded-full bg-orange-50 text-orange-700 font-semibold text-sm flex items-center gap-2 border border-orange-200">
+                                    <span className="w-2.5 h-2.5 bg-orange-500 rounded-full"></span>Investigating: {reports.filter(r => r.status === 'INVESTIGATING').length}
+                                </span>
+                                <span className="px-4 py-2 rounded-full bg-green-50 text-green-700 font-semibold text-sm flex items-center gap-2 border border-green-200">
+                                    <span className="w-2.5 h-2.5 bg-green-500 rounded-full"></span>Resolved: {reports.filter(r => r.status === 'RESOLVED').length}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="glass rounded-2xl shadow-xl p-4 scale-in">
+                        <div id="map" className="h-[550px]"></div>
+                    </div>
+                    <div className="glass rounded-2xl shadow-xl p-6 slide-up">
+                        <h3 className="font-bold text-gray-800 text-lg mb-4 flex items-center gap-2">
+                            <span className="text-xl">📋</span> Crisis Type Legend
+                        </h3>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {Object.entries(CRISIS_TYPES).map(([key, crisis]) => (
+                                <div key={key} className="flex items-center space-x-3 p-3 rounded-xl hover:bg-white/50 transition-all cursor-pointer">
+                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shadow-md" style={{backgroundColor: crisis.color + '20'}}>{crisis.icon}</div>
+                                    <span className="text-sm font-semibold text-gray-800">{crisis.name}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function ReportForm() {
+            const { addReport, CATEGORIES, CRISIS_TYPES, SEVERITY_LEVELS, currentUser } = useContext(AppContext);
+            const [category, setCategory] = useState('');
+            const [crisisType, setCrisisType] = useState('water');
+            const [severity, setSeverity] = useState('medium');
+            const [description, setDescription] = useState('');
+            const [address, setAddress] = useState('');
+            const [photo, setPhoto] = useState(null);
+            const [photoPreview, setPhotoPreview] = useState(null);
+            const [isCompressing, setIsCompressing] = useState(false);
+            const fileInputRef = useRef(null);
+
+            const handlePhotoChange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                if (!file.type.startsWith('image/')) {
+                    alert('Please select a valid image file!');
+                    return;
+                }
+
+                if (file.size > 10 * 1024 * 1024) {
+                    alert('Image is too large! Please select an image under 10MB.');
+                    return;
+                }
+
+                setIsCompressing(true);
+                
+                try {
+                    const compressedBase64 = await compressImage(file, 500, 0.7);
+                    setPhoto(compressedBase64);
+                    setPhotoPreview(compressedBase64);
+                } catch (error) {
+                    console.error('Error processing image:', error);
+                    alert('Error processing image. Please try again.');
+                } finally {
+                    setIsCompressing(false);
+                }
+            };
+
+            const removePhoto = () => {
+                setPhoto(null);
+                setPhotoPreview(null);
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                if (!category || !description) { 
+                    alert('Please fill all required fields!'); 
+                    return; 
+                }
+
+                let finalPhoto = null;
+                if (photo) {
+                    setIsCompressing(true);
+                    try {
+                        finalPhoto = await compressImage(photo, 500, 0.7);
+                    } catch (error) {
+                        console.error('Error compressing final photo:', error);
+                    }
+                    setIsCompressing(false);
+                }
+
+                addReport({ 
+                    category, 
+                    crisisType,
+                    severity,
+                    description, 
+                    address, 
+                    photo: finalPhoto,
+                    timestamp: Date.now(),
+                    latitude: 12.9716 + (Math.random() - 0.5) * 0.2, 
+                    longitude: 77.5946 + (Math.random() - 0.5) * 0.2 
+                });
+                
+                setCategory('');
+                setCrisisType('water');
+                setSeverity('medium');
+                setDescription('');
+                setAddress('');
+                setPhoto(null);
+                setPhotoPreview(null);
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
+            };
+
+            return (
+                <div className="max-w-2xl mx-auto space-y-6">
+                    <div className="glass rounded-2xl shadow-xl p-8 text-white relative overflow-hidden scale-in">
+                        <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-blue-600"></div>
+                        <div className="absolute inset-0 opacity-20">
+                            <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full -translate-y-1/2 translate-x-1/2"></div>
+                            <div className="absolute bottom-0 left-0 w-32 h-32 bg-white rounded-full translate-y-1/2 -translate-x-1/2"></div>
+                        </div>
+                        <div className="relative flex items-center space-x-4">
+                            <span className="text-6xl float">📝</span>
+                            <div>
+                                <h1 className="text-3xl font-bold">Report a Crisis</h1>
+                                <p className="text-cyan-100 mt-1 font-medium">Help keep Bengaluru safe!</p>
+                            </div>
+                        </div>
+                    </div>
+                    <form onSubmit={handleSubmit} className="glass rounded-2xl shadow-xl p-8 space-y-6 slide-up">
+                        <div className="bg-gradient-to-r from-cyan-50 to-blue-50 rounded-xl p-5 flex items-center justify-between border border-cyan-200">
+                            <div>
+                                <p className="text-sm text-cyan-700 font-semibold">Reporting as</p>
+                                <p className="font-bold text-cyan-800 text-lg">{currentUser.name}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-sm text-cyan-700 font-semibold">Your Points</p>
+                                <p className="text-3xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">{currentUser.points}</p>
+                            </div>
+                        </div>
+
+                        {/* Photo Upload Section */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-800 mb-3">📷 Photo Evidence (Optional)</label>
+                            
+                            <input 
+                                type="file" 
+                                accept="image/*" 
+                                capture="environment"
+                                ref={fileInputRef}
+                                onChange={handlePhotoChange}
+                                style={{ display: 'none' }}
+                            />
+                            
+                            {photoPreview ? (
+                                <div className="relative">
+                                    <div className="w-full h-48 rounded-xl overflow-hidden shadow-lg border-2 border-cyan-300">
+                                        <img 
+                                            src={photoPreview} 
+                                            alt="Preview" 
+                                            className="w-full h-full object-cover"
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={removePhoto}
+                                        className="absolute top-2 right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors text-sm font-bold"
+                                    >
+                                        ✕
+                                    </button>
+                                    <div className="mt-2 text-sm text-gray-700 font-medium flex items-center gap-2">
+                                        <span className="text-green-600 font-bold">✓</span> Photo attached
+                                        <span className="text-gray-500">({Math.round(photoPreview.length / 1024)}KB)</span>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div 
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="w-full h-40 border-2 border-dashed border-gray-400 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-cyan-500 hover:bg-cyan-50/50 transition-all duration-300"
+                                >
+                                    <span className="text-4xl mb-2">📷</span>
+                                    <span className="text-gray-700 font-semibold">Tap to take or upload photo</span>
+                                    <span className="text-sm text-gray-500 mt-1 font-medium">Supports camera capture</span>
+                                </div>
+                            )}
+                            
+                            {isCompressing && (
+                                <div className="mt-2 text-sm text-blue-700 font-medium flex items-center gap-2">
+                                    <span className="animate-spin">⏳</span> Processing image...
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Crisis Type Selection */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-800 mb-3">Crisis Type *</label>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                {Object.entries(CRISIS_TYPES).map(([key, crisis]) => (
+                                    <button type="button" key={key} onClick={() => setCrisisType(key)}
+                                        className={`p-4 rounded-xl border-2 transition-all duration-300 ${crisisType === key ? 'border-red-500 bg-gradient-to-br from-red-100 to-orange-100 scale-105 shadow-lg' : 'border-gray-300 hover:border-red-400 hover:shadow-md'}`}>
+                                        <span className="text-3xl block mb-2">{crisis.icon}</span>
+                                        <span className="text-xs font-semibold text-gray-800">{crisis.name}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Severity Selection */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-800 mb-3">Severity Level *</label>
+                            <div className="grid grid-cols-3 gap-3">
+                                {Object.entries(SEVERITY_LEVELS).map(([key, level]) => (
+                                    <button type="button" key={key} onClick={() => setSeverity(key)}
+                                        className={`p-4 rounded-xl border-2 transition-all duration-300 ${severity === key ? `border-${level.color} bg-gradient-to-br` : 'border-gray-300 hover:shadow-md'}`}
+                                        style={severity === key ? { 
+                                            borderColor: level.color, 
+                                            background: `linear-gradient(to bottom right, ${level.color}20, ${level.color}40)` 
+                                        } : {}}>
+                                        <span className={`text-lg font-bold block ${severity === key ? level.textColor : 'text-gray-700'}`}>{level.name}</span>
+                                        <span className="text-xs text-gray-500 mt-1 block">
+                                            {key === 'low' ? 'Minor issue' : key === 'medium' ? 'Moderate risk' : 'Immediate action'}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Category Selection */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-800 mb-3">Issue Category *</label>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                {Object.entries(CATEGORIES).map(([key, cat]) => (
+                                    <button type="button" key={key} onClick={() => setCategory(key)}
+                                        className={`p-4 rounded-xl border-2 transition-all duration-300 ${category === key ? 'border-cyan-500 bg-gradient-to-br from-cyan-100 to-blue-100 scale-105 shadow-lg' : 'border-gray-300 hover:border-cyan-400 hover:shadow-md'}`}>
+                                        <span className="text-3xl block mb-2">{cat.icon}</span>
+                                        <span className="text-sm font-semibold text-gray-800">{cat.name}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Description */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-800 mb-3">Description *</label>
+                            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={4} required
+                                placeholder="Describe the issue in detail. Include specific location, how long it's been happening, and any health impacts..."
+                                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all resize-none text-gray-800" />
+                        </div>
+
+                        {/* Location */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-800 mb-3">Location (Bengaluru)</label>
+                            <input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="e.g., Near Indiranagar Metro Station"
+                                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 text-gray-800" />
+                        </div>
+
+                        {/* Submit Button */}
+                        <button 
+                            type="submit" 
+                            disabled={isCompressing}
+                            className={`btn-primary ripple w-full py-4 rounded-xl text-white font-bold text-lg shadow-xl flex items-center justify-center gap-3 ${isCompressing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            <span>{isCompressing ? 'Processing...' : 'Submit Report'}</span>
+                            <span className="text-xl">✨</span>
+                        </button>
+                    </form>
+
+                    {/* Tips Section */}
+                    <div className="bg-gradient-to-r from-blue-100 to-cyan-100 rounded-2xl shadow-lg p-6 border border-blue-200 slide-up">
+                        <h3 className="font-bold text-blue-800 mb-3 flex items-center gap-2 text-lg">💡 Tips for a Great Report</h3>
+                        <ul className="space-y-2 text-sm text-blue-800 font-medium">
+                            <li className="flex items-start gap-2"><span className="text-green-600 font-bold">✓</span> Take a clear photo of the issue</li>
+                            <li className="flex items-start gap-2"><span className="text-green-600 font-bold">✓</span> Be specific about the location</li>
+                            <li className="flex items-start gap-2"><span className="text-green-600 font-bold">✓</span> Include health impacts observed</li>
+                            <li className="flex items-start gap-2"><span className="text-green-600 font-bold">✓</span> Set accurate severity level</li>
+                        </ul>
+                    </div>
+                </div>
+            );
+        }
+
+        function Dashboard() {
+            const { reports, updateStatus, currentUser, CATEGORIES, STATUSES } = useContext(AppContext);
+            
+            // Get reports created by current user
+            const myReports = reports.filter(r => r.reporterName === currentUser.name);
+            
+            const stats = {
+                total: reports.length,
+                myReports: myReports.length,
+                open: reports.filter(r => r.status === 'OPEN').length,
+                myOpen: myReports.filter(r => r.status === 'OPEN').length,
+                investigating: reports.filter(r => r.status === 'INVESTIGATING').length,
+                resolved: reports.filter(r => r.status === 'RESOLVED').length,
+                myResolved: myReports.filter(r => r.status === 'RESOLVED').length,
+                avgRisk: Math.round(reports.reduce((sum, r) => sum + r.riskScore, 0) / reports.length),
+                withPhotos: reports.filter(r => r.photo).length
+            };
+
+            return (
+                <div className="space-y-6">
+                    {/* My Stats Card - Shows currentUser data */}
+                    <div className="glass rounded-2xl shadow-xl p-6 scale-in bg-gradient-to-r from-cyan-50 to-blue-50 border-2 border-cyan-200">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center space-x-3">
+                                <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-xl flex items-center justify-center shadow-lg">
+                                    <span className="text-2xl">👤</span>
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-bold text-gray-800">My Dashboard</h2>
+                                    <p className="text-sm text-gray-600 font-medium">Welcome back, {currentUser.name}!</p>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-sm text-cyan-700 font-semibold">Your Points</p>
+                                <p className="text-3xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">{currentUser.points}</p>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="bg-white rounded-xl p-4 border border-cyan-200 text-center">
+                                <p className="text-3xl font-bold text-cyan-700">{currentUser.reportsCount}</p>
+                                <p className="text-sm font-semibold text-cyan-600">My Reports</p>
+                            </div>
+                            <div className="bg-white rounded-xl p-4 border border-green-200 text-center">
+                                <p className="text-3xl font-bold text-green-700">{stats.myResolved}</p>
+                                <p className="text-sm font-semibold text-green-600">Resolved</p>
+                            </div>
+                            <div className="bg-white rounded-xl p-4 border border-yellow-200 text-center">
+                                <p className="text-3xl font-bold text-yellow-700">{currentUser.badges.length}</p>
+                                <p className="text-sm font-semibold text-yellow-600">Badges</p>
+                            </div>
+                            <div className="bg-white rounded-xl p-4 border border-purple-200 text-center">
+                                <p className="text-3xl font-bold text-purple-700">{Math.round(currentUser.points / 10)}</p>
+                                <p className="text-sm font-semibold text-purple-600">Impact Score</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* All Reports Stats */}
+                    <div className="glass rounded-2xl shadow-xl p-6 scale-in">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+                            <span className="text-3xl">📊</span> Community Reports
+                        </h2>
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                            <div className="bg-gradient-to-br from-red-100 to-red-50 rounded-xl p-4 border-2 border-red-300 card">
+                                <p className="text-red-700 text-sm font-bold">Total Reports</p>
+                                <p className="text-3xl font-bold text-red-800">{stats.total}</p>
+                            </div>
+                            <div className="bg-gradient-to-br from-orange-100 to-orange-50 rounded-xl p-4 border-2 border-orange-300 card">
+                                <p className="text-orange-700 text-sm font-bold">Open Issues</p>
+                                <p className="text-3xl font-bold text-orange-800">{stats.open}</p>
+                            </div>
+                            <div className="bg-gradient-to-br from-green-100 to-green-50 rounded-xl p-4 border-2 border-green-300 card">
+                                <p className="text-green-700 text-sm font-bold">Resolved</p>
+                                <p className="text-3xl font-bold text-green-800">{stats.resolved}</p>
+                            </div>
+                            <div className="bg-gradient-to-br from-blue-100 to-blue-50 rounded-xl p-4 border-2 border-blue-300 card">
+                                <p className="text-blue-700 text-sm font-bold">Avg Risk</p>
+                                <p className="text-3xl font-bold text-blue-800">{stats.avgRisk}</p>
+                            </div>
+                            <div className="bg-gradient-to-br from-purple-100 to-purple-50 rounded-xl p-4 border-2 border-purple-300 card">
+                                <p className="text-purple-700 text-sm font-bold">📷 With Photos</p>
+                                <p className="text-3xl font-bold text-purple-800">{stats.withPhotos}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Reports Table */}
+                    <div className="glass rounded-2xl shadow-xl overflow-hidden slide-up">
+                        <div className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                            <h3 className="font-bold text-gray-800 text-lg">All Reports ({reports.length})</h3>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full">
+                                <thead className="bg-gradient-to-r from-gray-100 to-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">Issue</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-800 uppercase">Crisis Type</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-800 uppercase">Severity</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-800 uppercase">Status</th>
+                                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-800 uppercase">Risk</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y-2 divide-gray-200">
+                                    {reports.map((report, i) => {
+                                        const isMyReport = report.reporterName === currentUser.name;
+                                        const crisis = CRISIS_TYPES[report.crisisType] || CRISIS_TYPES.water;
+                                        const severity = SEVERITY_LEVELS[report.severity] || SEVERITY_LEVELS.medium;
+                                        return (
+                                            <tr key={report.id} className={`hover:bg-cyan-50/50 transition-all duration-200 ${isMyReport ? 'bg-green-50/30' : ''}`} style={{animationDelay: `${i * 0.05}s`}}>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-start gap-3">
+                                                        {report.photo && (
+                                                            <img 
+                                                                src={report.photo} 
+                                                                alt="Thumbnail" 
+                                                                className="w-12 h-12 rounded-lg object-cover flex-shrink-0 shadow" 
+                                                            />
+                                                        )}
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="text-sm font-semibold text-gray-800">{report.description.substring(0, 40)}...</div>
+                                                                {isMyReport && <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-bold rounded-full">MY</span>}
+                                                            </div>
+                                                            <div className="text-xs text-gray-600 font-medium mt-1">📍 {report.address}</div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="flex items-center space-x-2">
+                                                        <span className="text-2xl" style={{filter: `drop-shadow(0 0 4px ${crisis.color})`}}>{crisis.icon}</span>
+                                                        <span className="text-sm font-semibold text-gray-800">{crisis.name}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${severity.bgColor} ${severity.textColor}`}>
+                                                        {severity.name}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <select value={report.status} onChange={e => updateStatus(report.id, e.target.value)}
+                                                        className={`px-4 py-2 rounded-xl text-sm font-bold border-2 ${STATUSES[report.status].bgColor} ${STATUSES[report.status].textColor} ${STATUSES[report.status].borderColor} cursor-pointer transition-all hover:shadow-md`}>
+                                                        {Object.entries(STATUSES).map(([k, s]) => <option key={k} value={k}>{s.name}</option>)}
+                                                    </select>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="flex items-center space-x-2">
+                                                        <div className="w-20 bg-gray-300 rounded-full h-2.5">
+                                                            <div className={`h-2.5 rounded-full ${report.riskScore >= 70 ? 'bg-red-500' : report.riskScore >= 40 ? 'bg-orange-500' : 'bg-green-500'}`} style={{width: `${report.riskScore}%`}}></div>
+                                                        </div>
+                                                        <span className="text-sm font-bold text-gray-800">{report.riskScore}</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function Leaderboard() {
+            const { currentUser, reports, BADGES } = useContext(AppContext);
+            
+            // Create dynamic user list with currentUser at top
+            const allReporters = {};
+            
+            // Count reports per reporter
+            reports.forEach(r => {
+                if (!allReporters[r.reporterName]) {
+                    allReporters[r.reporterName] = { count: 0, points: 0 };
+                }
+                allReporters[r.reporterName].count++;
+                allReporters[r.reporterName].points += 10; // 10 points per report
+            });
+            
+            // Build user list with currentUser first
+            const users = [
+                { 
+                    name: currentUser.name, 
+                    points: currentUser.points, 
+                    badges: currentUser.badges, 
+                    reports: currentUser.reportsCount,
+                    isCurrentUser: true
+                },
+                { name: 'Rajesh Kumar', points: 10, badges: ['FIRST_REPORTER'], reports: 1, isCurrentUser: false },
+                { name: 'Anita Verma', points: 10, badges: ['FIRST_REPORTER'], reports: 1, isCurrentUser: false },
+                { name: 'Mohammed Ali', points: 10, badges: ['FIRST_REPORTER'], reports: 1, isCurrentUser: false },
+                { name: 'Sneha Reddy', points: 10, badges: ['FIRST_REPORTER'], reports: 1, isCurrentUser: false },
+                { name: 'Vikram Singh', points: 10, badges: ['FIRST_REPORTER'], reports: 1, isCurrentUser: false }
+            ].sort((a, b) => b.points - a.points);
+
+            return (
+                <div className="max-w-4xl mx-auto space-y-6">
+                    <div className="glass rounded-2xl shadow-xl p-8 text-white relative overflow-hidden scale-in">
+                        <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 to-orange-500"></div>
+                        <div className="absolute inset-0 opacity-20">
+                            <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full -translate-y-1/2 translate-x-1/2"></div>
+                        </div>
+                        <div className="relative flex items-center space-x-4">
+                            <span className="text-6xl float">🏆</span>
+                            <div>
+                                <h1 className="text-3xl font-bold">Community Leaderboard</h1>
+                                <p className="text-yellow-100 mt-1 font-semibold">Top reporters making Bengaluru safer!</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {users.slice(0, 3).map((user, i) => {
+                            const configs = [
+                                {h: 'min-h-[200px]', bg: 'from-yellow-400 to-yellow-500', medal: '🥇', shadow: 'shadow-yellow-400/30'},
+                                {h: 'min-h-[170px]', bg: 'from-gray-300 to-gray-400', medal: '🥈', shadow: 'shadow-gray-400/30'},
+                                {h: 'min-h-[140px]', bg: 'from-orange-400 to-orange-500', medal: '🥉', shadow: 'shadow-orange-400/30'}
+                            ][i];
+                            return (
+                                <div key={i} className={`leaderboard-card bg-gradient-to-b ${configs.bg} text-white rounded-2xl shadow-2xl ${configs.shadow} p-6 flex flex-col items-center justify-end ${configs.h}`}>
+                                    <span className="text-7xl mb-3">{configs.medal}</span>
+                                    <p className="text-2xl font-bold text-center">{user.name}</p>
+                                    <p className="text-xl mt-1 font-semibold">{user.points} points</p>
+                                    <div className="flex mt-3">{user.badges.map((b, j) => <span key={j} className="text-2xl badge">{BADGES[b]?.icon}</span>)}</div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <div className="glass rounded-2xl shadow-xl overflow-hidden slide-up">
+                        <div className="p-6 border-b-2 border-gray-200">
+                            <h2 className="text-xl font-bold text-gray-800">🏅 All Reporters</h2>
+                        </div>
+                        {users.map((user, i) => (
+                            <div key={i} className="p-5 flex items-center space-x-4 hover:bg-gradient-to-r hover:from-cyan-50 hover:to-blue-50 transition-all duration-300 border-b border-gray-100">
+                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-bold text-xl text-white ${i === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-500' : i === 1 ? 'bg-gradient-to-br from-gray-300 to-gray-400' : i === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-500' : 'bg-gradient-to-br from-gray-200 to-gray-300'}`}>{i + 1}</div>
+                                <div className="flex-1">
+                                    <p className="font-bold text-gray-800 text-lg">{user.name}</p>
+                                    <p className="text-sm text-gray-600 font-medium">{user.reports} reports submitted</p>
+                                </div>
+                                <div className="text-3xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">{user.points}</div>
+                                <div className="flex space-x-2">{user.badges.map((b, j) => <span key={j} className="text-2xl badge cursor-pointer" title={BADGES[b]?.description}>{BADGES[b]?.icon}</span>)}</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        // AI Chatbot - Rule-based responses with emergency safety info
+        const AI_RESPONSES = {
+            greeting: [
+                "Hello! I'm your WASH assistant. Ask me about water safety, hygiene, or sanitation issues.",
+                "Hi! I can help with water quality, hygiene tips, and sanitation. What would you like to know?"
+            ],
+            fire_safety: [
+                "🔥 FIRE SAFETY: Stay low to avoid smoke. Feel doors before opening. Use wet cloth for mouth/nose. Call 101 immediately.",
+                "If you see fire: 1) Alert others 2) Call 101 3) Use fire extinguisher if safe 4) Evacuate calmly 5) Meet at assembly point.",
+                "Fire prevention: Keep exits clear, check electrical wiring, don't leave cooking unattended, have fire extinguisher accessible."
+            ],
+            earthquake_safety: [
+                "🌋 EARTHQUAKE SAFETY: DROP to your knees. Take COVER under sturdy furniture. HOLD ON until shaking stops.",
+                "During earthquake: Stay away from windows/glass, protect head, be ready for aftershocks, check for injuries.",
+                "After earthquake: Check for gas leaks (smell!), turn off electricity if damaged, expect aftershocks, listen to emergency broadcasts."
+            ],
+            flood_safety: [
+                "🌊 FLOOD SAFETY: Move to higher ground immediately. Do NOT walk or drive through flood water. Avoid bridge crossings.",
+                "During floods: Turn off electricity, don't touch electrical equipment if wet, avoid downstream areas, listen to evacuation orders.",
+                "After floods: Wait for official all-clear, avoid standing water (could be electrically charged or contaminated), sanitize affected areas."
+            ],
+            water_safety: [
+                "Boil water if it looks cloudy or has an unusual smell. Clear water from treated sources is usually safe.",
+                "If water is brown or smells bad, don't drink it. Use bottled water or boil for 1 minute.",
+                "Water tanks should be cleaned every 6 months. Dark or smelly water indicates contamination."
+            ],
+            contamination: [
+                "Brown or discolored water often indicates rust or sediment. Avoid drinking until cleared.",
+                "Chemical contamination may cause strong odors. Report to local water authority immediately.",
+                "Algae blooms (green water) can be toxic. Avoid contact and report to authorities."
+            ],
+            hygiene: [
+                "Wash hands with soap for 20+ seconds. Key times: after toilet, before eating, after touching waste.",
+                "Keep toilet areas clean. Disinfect weekly with bleach solution (1 part bleach to 10 parts water).",
+                "Don't share towels. Use separate or disposable paper towels in public facilities."
+            ],
+            sanitation: [
+                "Open drainage is a health hazard. Contact BBMP (Bruhat Bengaluru Mahanagara Palike) to report.",
+                "Blocked sewers cause disease spread. Report clogged drains immediately to prevent flooding.",
+                "Public toilets should have soap, water, and toilet paper. Report missing supplies."
+            ],
+            health: [
+                "Diarrhea from contaminated water usually resolves in 2-3 days. Drink clean fluids. Seek help if severe.",
+                "Skin infections from dirty water need medical attention. Keep affected areas clean and dry.",
+                "Mosquito breeding in stagnant water causes dengue/malaria. Eliminate standing water near your home."
+            ],
+            emergency: [
+                "If you see dead animals or chemicals in water, don't use it. Report immediately to water authority.",
+                "Flood water is contaminated. Don't wade through it. Move to higher ground and contact authorities.",
+                "Sewage overflow is dangerous. Avoid contact, sanitize affected areas, report to BBMP."
+            ],
+            general: [
+                "WASH = Water, Sanitation, and Hygiene. All three are essential for public health.",
+                "Report WASH issues through the Report tab. Each report earns points and helps your community.",
+                "Bengaluru faces water scarcity. Fix leaks, reuse grey water, and report wastage."
+            ],
+            water_sources: [
+                "Bengaluru gets water from Cauvery river and borewells. Groundwater levels are declining.",
+                "Tanker water should be stored in clean containers. Boil if unsure of source quality.",
+                "Rainwater harvesting helps replenish groundwater. Consider installing a collection system."
+            ]
+        };
+
+        function getAIResponse(message) {
+            const lowerMsg = message.toLowerCase();
+            
+            if (lowerMsg.match(/^(hi|hello|hey|namaste|greetings)/)) {
+                return AI_RESPONSES.greeting[Math.floor(Math.random() * AI_RESPONSES.greeting.length)];
+            }
+            // Fire safety
+            if (lowerMsg.match(/fire|flame|burn|smoke|blaze|🔥/)) {
+                return AI_RESPONSES.fire_safety[Math.floor(Math.random() * AI_RESPONSES.fire_safety.length)];
+            }
+            // Earthquake safety
+            if (lowerMsg.match(/earthquake|tremor|quake|seismic|shaking/)) {
+                return AI_RESPONSES.earthquake_safety[Math.floor(Math.random() * AI_RESPONSES.earthquake_safety.length)];
+            }
+            // Flood safety
+            if (lowerMsg.match(/flood|waterlogging|overflow|drowning|water.*rise/)) {
+                return AI_RESPONSES.flood_safety[Math.floor(Math.random() * AI_RESPONSES.flood_safety.length)];
+            }
+            if (lowerMsg.match(/brown|cloudy|smell|odor|discolored|taste/) && lowerMsg.match(/water|drink/)) {
+                return AI_RESPONSES.water_safety[Math.floor(Math.random() * AI_RESPONSES.water_safety.length)];
+            }
+            if (lowerMsg.match(/contaminat|toxic|poison|chemical|industrial/)) {
+                return AI_RESPONSES.contamination[Math.floor(Math.random() * AI_RESPONSES.contamination.length)];
+            }
+            if (lowerMsg.match(/wash.*hand|hand.*wash|soap|sanitizer|disinfect/)) {
+                return AI_RESPONSES.hygiene[Math.floor(Math.random() * AI_RESPONSES.hygiene.length)];
+            }
+            if (lowerMsg.match(/toilet|bathroom|sewage|drain|garbage|trash/)) {
+                return AI_RESPONSES.sanitation[Math.floor(Math.random() * AI_RESPONSES.sanitation.length)];
+            }
+            if (lowerMsg.match(/health|sick|diarrhea|disease|infection|vomit/) && lowerMsg.match(/water/)) {
+                return AI_RESPONSES.health[Math.floor(Math.random() * AI_RESPONSES.health.length)];
+            }
+            if (lowerMsg.match(/emergenc|urgent|dead.*animal|sewage.*overflow/)) {
+                return AI_RESPONSES.emergency[Math.floor(Math.random() * AI_RESPONSES.emergency.length)];
+            }
+            if (lowerMsg.match(/bbmp|report|complain|authority/)) {
+                return AI_RESPONSES.sanitation[Math.floor(Math.random() * AI_RESPONSES.sanitation.length)];
+            }
+            if (lowerMsg.match(/what.*is.*wash|explain.*wash|meaning.*wash/)) {
+                return AI_RESPONSES.general[0];
+            }
+            if (lowerMsg.match(/water.*source|cauvery|borewell|groundwater|tanker|rain.*water/)) {
+                return AI_RESPONSES.water_sources[Math.floor(Math.random() * AI_RESPONSES.water_sources.length)];
+            }
+            if (lowerMsg.match(/tip|hint|advice|how.*prevent|how.*avoid|safety/)) {
+                return AI_RESPONSES.hygiene[Math.floor(Math.random() * AI_RESPONSES.hygiene.length)];
+            }
+            
+            return "I'm here to help with water safety, hygiene tips, and sanitation issues. Try asking about:\n• Water quality concerns\n• Fire/earthquake/flood safety\n• Hand washing techniques\n• Reporting WASH problems\n• Health symptoms from contaminated water";
+        }
+
+        // Get statistics for admin panel
+        function getStats(reports) {
+            const byType = {};
+            const byStatus = { OPEN: 0, INVESTIGATING: 0, RESOLVED: 0 };
+            const bySeverity = { high: 0, medium: 0, low: 0 };
+
+            reports.forEach(r => {
+                byType[r.category] = (byType[r.category] || 0) + 1;
+                byStatus[r.status] = (byStatus[r.status] || 0) + 1;
+                bySeverity[r.severity] = (bySeverity[r.severity] || 0) + 1;
+            });
+
+            return { byType, byStatus, bySeverity, total: reports.length };
+        }
+
+        // Offline mode management
+        const [pendingReports, setPendingReports] = useState(() => {
+            const saved = localStorage.getItem('aquawatch_pending_reports');
+            return saved ? JSON.parse(saved) : [];
+        });
+        const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+        useEffect(() => {
+            const handleOnline = () => {
+                setIsOnline(true);
+                syncOfflineReports();
+            };
+            const handleOffline = () => setIsOnline(false);
+            window.addEventListener('online', handleOnline);
+            window.addEventListener('offline', handleOffline);
+            return () => {
+                window.removeEventListener('online', handleOnline);
+                window.removeEventListener('offline', handleOffline);
+            };
+        }, []);
+
+        useEffect(() => {
+            localStorage.setItem('aquawatch_pending_reports', JSON.stringify(pendingReports));
+        }, [pendingReports]);
+
+        function syncOfflineReports() {
+            if (pendingReports.length > 0 && navigator.onLine) {
+                pendingReports.forEach(report => addReport(report));
+                setPendingReports([]);
+                showToast(`Synced ${pendingReports.length} offline reports!`, 'success');
+            }
+        }
+
+        function AdminPanel() {
+            const { reports, CATEGORIES, CRISIS_TYPES, SEVERITY_LEVELS } = useContext(AppContext);
+            const stats = getStats(reports);
+            const riskZones = calculateRiskZones(reports);
+            const clusters = detectClusters(reports);
+            const [nearestServices, setNearestServices] = useState([]);
+            const [showServices, setShowServices] = useState(false);
+            const [currentLocation, setCurrentLocation] = useState(null);
+            const [nearbyAlerts, setNearbyAlerts] = useState([]);
+
+            const getUserLocation = () => {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition((pos) => {
+                        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                        setCurrentLocation(loc);
+                        const nearest = findNearestServices(loc, 5);
+                        setNearestServices(nearest);
+                        const alerts = checkNearbyAlerts(loc, reports);
+                        setNearbyAlerts(alerts);
+                    });
+                }
+            };
+
+            return (
+                <div className="space-y-6">
+                    {!isOnline && (
+                        <div className="bg-yellow-100 border-2 border-yellow-400 rounded-xl p-4 flex items-center gap-3">
+                            <span className="text-2xl">📡</span>
+                            <div>
+                                <p className="font-bold text-yellow-800">Offline Mode Active</p>
+                                <p className="text-sm text-yellow-700">{pendingReports.length} reports pending sync</p>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="glass rounded-2xl shadow-xl p-6 bg-gradient-to-r from-purple-50 to-violet-50 border-2 border-purple-200">
+                        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+                            <span className="text-3xl">🔐</span> Admin Dashboard
+                        </h2>
+                    </div>
+
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="glass rounded-xl p-4 shadow-lg bg-gradient-to-br from-blue-100 to-blue-50">
+                            <p className="text-blue-700 font-semibold">Total Reports</p>
+                            <p className="text-4xl font-bold text-blue-800">{stats.total}</p>
+                        </div>
+                        <div className="glass rounded-xl p-4 shadow-lg bg-gradient-to-br from-red-100 to-red-50">
+                            <p className="text-red-700 font-semibold">Active Emergencies</p>
+                            <p className="text-4xl font-bold text-red-800">{stats.byStatus.OPEN}</p>
+                        </div>
+                        <div className="glass rounded-xl p-4 shadow-lg bg-gradient-to-br from-yellow-100 to-yellow-50">
+                            <p className="text-yellow-700 font-semibold">High Risk Areas</p>
+                            <p className="text-4xl font-bold text-yellow-800">{riskZones.filter(z => z.riskLevel === 'high').length}</p>
+                        </div>
+                        <div className="glass rounded-xl p-4 shadow-lg bg-gradient-to-br from-green-100 to-green-50">
+                            <p className="text-green-700 font-semibold">Clusters Detected</p>
+                            <p className="text-4xl font-bold text-green-800">{clusters.length}</p>
+                        </div>
+                    </div>
+
+                    {/* Crisis Breakdown */}
+                    <div className="glass rounded-2xl shadow-xl p-6">
+                        <h3 className="font-bold text-gray-800 text-lg mb-4">📊 Crisis Type Breakdown</h3>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {Object.entries(stats.byType).map(([type, count]) => (
+                                <div key={type} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                                    <span className="text-2xl">{CRISIS_TYPES[type]?.icon || '⚠️'}</span>
+                                    <div>
+                                        <p className="font-semibold text-gray-800">{CATEGORIES[type]?.name || type}</p>
+                                        <p className="text-sm text-gray-600">{count} reports</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Severity Breakdown */}
+                    <div className="glass rounded-2xl shadow-xl p-6">
+                        <h3 className="font-bold text-gray-800 text-lg mb-4">⚠️ Severity Distribution</h3>
+                        <div className="grid grid-cols-3 gap-4">
+                            {Object.entries(stats.bySeverity).map(([level, count]) => (
+                                <div key={level} className={`rounded-xl p-4 text-center ${SEVERITY_LEVELS[level].bgColor}`}>
+                                    <p className={`text-3xl font-bold ${SEVERITY_LEVELS[level].textColor}`}>{count}</p>
+                                    <p className={`font-semibold ${SEVERITY_LEVELS[level].textColor}`}>{SEVERITY_LEVELS[level].name}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Find Help Section */}
+                    <div className="glass rounded-2xl shadow-xl p-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-bold text-gray-800 text-lg">📍 Find Nearest Emergency Services</h3>
+                            <button onClick={getUserLocation} className="btn-primary px-4 py-2 rounded-xl text-white font-semibold text-sm">
+                                📍 Get Location
+                            </button>
+                        </div>
+                        {currentLocation && (
+                            <p className="text-sm text-gray-600 mb-3">📍 Your location: {currentLocation.lat.toFixed(4)}, {currentLocation.lng.toFixed(4)}</p>
+                        )}
+                        <div className="space-y-2">
+                            {nearestServices.map((service, i) => (
+                                <div key={service.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-2xl">{SERVICE_TYPES[service.type]?.icon}</span>
+                                        <div>
+                                            <p className="font-semibold text-gray-800">{service.name}</p>
+                                            <p className="text-sm text-gray-600">{service.phone}</p>
+                                        </div>
+                                    </div>
+                                    <span className="font-bold text-cyan-600">{service.distance.toFixed(1)} km</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Nearby Alerts */}
+                    {nearbyAlerts.length > 0 && (
+                        <div className="glass rounded-2xl shadow-xl p-6 bg-red-50 border-2 border-red-200">
+                            <h3 className="font-bold text-red-800 text-lg mb-4">⚠️ Nearby High-Risk Reports</h3>
+                            {nearbyAlerts.map(alert => (
+                                <div key={alert.id} className="p-3 bg-white rounded-xl mb-2 border border-red-200">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xl">{CRISIS_TYPES[alert.crisisType]?.icon}</span>
+                                            <p className="font-semibold text-gray-800">{alert.description.substring(0, 50)}...</p>
+                                        </div>
+                                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${SEVERITY_LEVELS[alert.severity].bgColor} ${SEVERITY_LEVELS[alert.severity].textColor}`}>
+                                            {SEVERITY_LEVELS[alert.severity].name}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Hygiene Tips Rotating Banner
+        const HYGIENE_TIPS = [
+            { icon: '🧼', tip: 'Wash hands for 20+ seconds with soap' },
+            { icon: '💧', tip: 'Drink 8 glasses of clean water daily' },
+            { icon: '🚽', tip: 'Keep toilet areas clean and disinfected' },
+            { icon: '🗑️', tip: 'Dispose waste properly - no dumping in drains' },
+            { icon: '🚿', tip: 'Take bath daily to maintain personal hygiene' },
+            { icon: '🦟', tip: 'Eliminate stagnant water to prevent mosquito breeding' },
+            { icon: '🥤', tip: 'Use clean containers for drinking water' },
+            { icon: '🏊', tip: 'Avoid swimming in potentially contaminated water' },
+            { icon: '👟', tip: 'Wear footwear near toilet areas to prevent infection' },
+            { icon: '🧴', tip: 'Use hand sanitizer when soap is unavailable' },
+            { icon: '💉', tip: 'Seek medical help if symptoms persist after 2 days' },
+            { icon: '📢', tip: 'Report WASH issues to help your community' }
+        ];
+
+        function HygieneTips() {
+            const [currentTip, setCurrentTip] = useState(0);
+            
+            useEffect(() => {
+                const interval = setInterval(() => {
+                    setCurrentTip(prev => (prev + 1) % HYGIENE_TIPS.length);
+                }, 8000);
+                return () => clearInterval(interval);
+            }, []);
+
+            return (
+                <div className="fixed bottom-0 left-0 right-0 bg-slate-900 py-4 px-6 shadow-2xl z-40" style={{background: 'linear-gradient(to right, #0f172a, #1e293b)'}}>
+                    <div className="max-w-7xl mx-auto flex items-center justify-center space-x-4">
+                        <div className="text-3xl animate-pulse" style={{filter: 'drop-shadow(0 0 8px rgba(34, 211, 238, 0.8))'}}>💡</div>
+                        <p className="text-lg font-bold tracking-wide" style={{color: '#22d3ee', textShadow: '0 0 10px rgba(34, 211, 238, 0.5), 0 2px 4px rgba(0,0,0,0.5)'}}>
+                            {HYGIENE_TIPS[currentTip].tip}
+                        </p>
+                        <div className="flex space-x-1">
+                            {HYGIENE_TIPS.map((_, i) => (
+                                <span key={i} className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${i === currentTip ? 'bg-cyan-400 shadow-lg shadow-cyan-400/50' : 'bg-slate-500'}`}></span>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // ChatGPT-style Chatbot Component
+        function ChatBot() {
+            const [messages, setMessages] = useState([
+                { role: 'assistant', content: "Hello! I'm your WASH assistant. I can help with:\n• Water safety & quality\n• Hygiene tips\n• Sanitation issues\n• Health concerns\n\nWhat would you like to know?", time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+            ]);
+            const [input, setInput] = useState('');
+            const [isTyping, setIsTyping] = useState(false);
+            const chatEndRef = useRef(null);
+
+            useEffect(() => {
+                chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, [messages]);
+
+            const handleSend = () => {
+                if (!input.trim()) return;
+
+                const userMessage = { role: 'user', content: input, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+                setMessages(prev => [...prev, userMessage]);
+                setInput('');
+                setIsTyping(true);
+
+                // Simulate AI thinking
+                setTimeout(() => {
+                    const response = getAIResponse(input);
+                    setMessages(prev => [...prev, { role: 'assistant', content: response, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+                    setIsTyping(false);
+                }, 800 + Math.random() * 700);
+            };
+
+            const handleKeyPress = (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                }
+            };
+
+            return (
+                <div className="max-w-4xl mx-auto space-y-6 pb-24">
+                    {/* Chat Header */}
+                    <div className="glass rounded-2xl shadow-xl p-6 scale-in">
+                        <div className="flex items-center space-x-4">
+                            <div className="w-14 h-14 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-2xl flex items-center justify-center shadow-lg">
+                                <span className="text-2xl">💬</span>
+                            </div>
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-800">WASH Assistant</h2>
+                                <p className="text-sm text-gray-600 font-medium">Ask about water, hygiene, and sanitation</p>
+                            </div>
+                            <div className="ml-auto flex items-center space-x-2">
+                                <span className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
+                                <span className="text-sm font-semibold text-green-600">Online</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Chat Messages */}
+                    <div className="glass rounded-2xl shadow-xl overflow-hidden slide-up" style={{ height: '500px' }}>
+                        <div className="h-full overflow-y-auto p-6 space-y-4 bg-gray-50">
+                            {messages.map((msg, i) => (
+                                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                    <div className={`max-w-[80%] rounded-2xl p-4 ${msg.role === 'user' 
+                                        ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-br-md' 
+                                        : 'bg-white shadow-md border border-gray-200 rounded-bl-md'}`}>
+                                        <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                                        <p className={`text-xs mt-2 ${msg.role === 'user' ? 'text-cyan-100' : 'text-gray-400'}`}>{msg.time}</p>
+                                    </div>
+                                </div>
+                            ))}
+                            
+                            {isTyping && (
+                                <div className="flex justify-start">
+                                    <div className="bg-white shadow-md border border-gray-200 rounded-2xl rounded-bl-md p-4">
+                                        <div className="flex space-x-1">
+                                            <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></span>
+                                            <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></span>
+                                            <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            <div ref={chatEndRef} />
+                        </div>
+                        
+                        {/* Input Area */}
+                        <div className="p-4 bg-white border-t border-gray-200">
+                            <div className="flex space-x-3">
+                                <input 
+                                    type="text" 
+                                    value={input} 
+                                    onChange={e => setInput(e.target.value)}
+                                    onKeyPress={handleKeyPress}
+                                    placeholder="Ask about water safety, hygiene tips..."
+                                    className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 text-gray-800"
+                                />
+                                <button 
+                                    onClick={handleSend}
+                                    disabled={!input.trim()}
+                                    className="btn-primary px-6 py-3 rounded-xl text-white font-bold shadow disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Send
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Quick Questions */}
+                    <div className="glass rounded-2xl shadow-xl p-6 slide-up">
+                        <h3 className="font-bold text-gray-800 mb-4">Quick Questions</h3>
+                        <div className="flex flex-wrap gap-2">
+                            {[
+                                "How to check water quality?",
+                                "Hand washing tips",
+                                "Report sanitation issue",
+                                "Water contamination signs",
+                                "Health symptoms from dirty water",
+                                "Emergency water situation"
+                            ].map((q, i) => (
+                                <button 
+                                    key={i}
+                                    onClick={() => setInput(q)}
+                                    className="px-4 py-2 bg-gradient-to-r from-gray-100 to-gray-50 rounded-xl text-sm font-medium text-gray-700 hover:from-cyan-100 hover:to-blue-100 hover:text-cyan-700 transition-all border border-gray-200 hover:border-cyan-300"
+                                >
+                                    {q}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function Profile() {
+            const { currentUser, updateUser, BADGES } = useContext(AppContext);
+            const [isEditing, setIsEditing] = useState(false);
+            const [formData, setFormData] = useState(currentUser);
+            const [profilePhoto, setProfilePhoto] = useState(null);
+            const fileInputRef = useRef(null);
+
+            const handlePhotoChange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                if (!file.type.startsWith('image/')) {
+                    alert('Please select a valid image file!');
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    setProfilePhoto(e.target.result);
+                    setFormData(prev => ({ ...prev, photo: e.target.result }));
+                };
+                reader.readAsDataURL(file);
+            };
+
+            const handleSave = () => {
+                updateUser(formData);
+                setIsEditing(false);
+            };
+
+            const handleCancel = () => {
+                setFormData(currentUser);
+                setProfilePhoto(null);
+                setIsEditing(false);
+            };
+
+            return (
+                <div className="max-w-3xl mx-auto space-y-6">
+                    {/* Profile Header */}
+                    <div className="glass rounded-2xl shadow-xl p-8 scale-in">
+                        <div className="flex items-start space-x-6">
+                            {/* Profile Photo */}
+                            <div className="relative">
+                                <div className="w-32 h-32 rounded-2xl overflow-hidden shadow-xl border-4 border-cyan-200 bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
+                                    {profilePhoto || currentUser.photo ? (
+                                        <img src={profilePhoto || currentUser.photo} alt="Profile" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <span className="text-6xl">👤</span>
+                                    )}
+                                </div>
+                                {isEditing && (
+                                    <>
+                                        <input 
+                                            type="file" 
+                                            accept="image/*"
+                                            ref={fileInputRef}
+                                            onChange={handlePhotoChange}
+                                            style={{ display: 'none' }}
+                                        />
+                                        <button
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="absolute bottom-0 right-0 w-10 h-10 bg-cyan-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-cyan-600 transition-colors text-lg font-bold"
+                                        >
+                                            📷
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* User Info */}
+                            <div className="flex-1">
+                                {isEditing ? (
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-bold text-gray-800 mb-2">Full Name</label>
+                                            <input 
+                                                type="text" 
+                                                value={formData.name}
+                                                onChange={e => setFormData({...formData, name: e.target.value})}
+                                                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 text-gray-800 font-semibold"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-gray-800 mb-2">Bio</label>
+                                            <textarea 
+                                                value={formData.bio || ''}
+                                                onChange={e => setFormData({...formData, bio: e.target.value})}
+                                                rows={2}
+                                                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 text-gray-800"
+                                            />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <h2 className="text-3xl font-bold text-gray-800">{currentUser.name}</h2>
+                                        <p className="text-gray-600 font-medium mt-1">{currentUser.bio || 'No bio added yet'}</p>
+                                        <div className="flex items-center gap-4 mt-3 text-gray-700 font-medium">
+                                            <span className="flex items-center gap-1">📅 Joined {currentUser.joinedDate}</span>
+                                            <span className="flex items-center gap-1">📍 {currentUser.location}</span>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Stats */}
+                        <div className="grid grid-cols-4 gap-4 mt-6 pt-6 border-t-2 border-gray-200">
+                            <div className="text-center p-4 bg-gradient-to-br from-cyan-50 to-blue-50 rounded-xl border border-cyan-200">
+                                <p className="text-3xl font-bold text-cyan-700">{currentUser.points}</p>
+                                <p className="text-sm font-semibold text-cyan-600">Points</p>
+                            </div>
+                            <div className="text-center p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-200">
+                                <p className="text-3xl font-bold text-green-700">{currentUser.reportsCount}</p>
+                                <p className="text-sm font-semibold text-green-600">Reports</p>
+                            </div>
+                            <div className="text-center p-4 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl border border-yellow-200">
+                                <p className="text-3xl font-bold text-yellow-700">{currentUser.badges.length}</p>
+                                <p className="text-sm font-semibold text-yellow-600">Badges</p>
+                            </div>
+                            <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-violet-50 rounded-xl border border-purple-200">
+                                <p className="text-3xl font-bold text-purple-700">{Math.round(currentUser.points / 10)}</p>
+                                <p className="text-sm font-semibold text-purple-600">Impact</p>
+                            </div>
+                        </div>
+
+                        {/* Badges */}
+                        <div className="mt-6 pt-6 border-t-2 border-gray-200">
+                            <h3 className="font-bold text-gray-800 text-lg mb-4 flex items-center gap-2">
+                                <span>🏅</span> Your Badges
+                            </h3>
+                            <div className="flex flex-wrap gap-3">
+                                {currentUser.badges.map((badge, i) => (
+                                    <div key={i} className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-cyan-50 to-blue-50 rounded-xl border border-cyan-200">
+                                        <span className="text-2xl">{BADGES[badge]?.icon}</span>
+                                        <span className="font-semibold text-gray-800">{BADGES[badge]?.name}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Edit Button */}
+                        <div className="mt-6">
+                            {isEditing ? (
+                                <div className="flex gap-3">
+                                    <button onClick={handleSave} className="btn-primary flex-1 py-3 rounded-xl text-white font-bold text-lg shadow">
+                                        💾 Save Changes
+                                    </button>
+                                    <button onClick={handleCancel} className="btn-secondary px-6 py-3 rounded-xl text-white font-bold text-lg shadow">
+                                        Cancel
+                                    </button>
+                                </div>
+                            ) : (
+                                <button onClick={() => setIsEditing(true)} className="w-full btn-primary py-3 rounded-xl text-white font-bold text-lg shadow">
+                                    ✏️ Edit Profile
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Contact Information */}
+                    <div className="glass rounded-2xl shadow-xl p-8 slide-up">
+                        <h3 className="font-bold text-gray-800 text-xl mb-6 flex items-center gap-2">
+                            <span>📋</span> Contact Information
+                        </h3>
+                        <div className="space-y-4">
+                            {isEditing ? (
+                                <>
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-800 mb-2">Email</label>
+                                        <input 
+                                            type="email" 
+                                            value={formData.email}
+                                            onChange={e => setFormData({...formData, email: e.target.value})}
+                                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 text-gray-800"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-800 mb-2">Phone</label>
+                                        <input 
+                                            type="tel" 
+                                            value={formData.phone}
+                                            onChange={e => setFormData({...formData, phone: e.target.value})}
+                                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 text-gray-800"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-800 mb-2">Location</label>
+                                        <input 
+                                            type="text" 
+                                            value={formData.location}
+                                            onChange={e => setFormData({...formData, location: e.target.value})}
+                                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-cyan-500 text-gray-800"
+                                        />
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-2xl">📧</span>
+                                            <span className="font-semibold text-gray-800">Email</span>
+                                        </div>
+                                        <span className="text-gray-700 font-medium">{currentUser.email}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-2xl">📱</span>
+                                            <span className="font-semibold text-gray-800">Phone</span>
+                                        </div>
+                                        <span className="text-gray-700 font-medium">{currentUser.phone}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-2xl">📍</span>
+                                            <span className="font-semibold text-gray-800">Location</span>
+                                        </div>
+                                        <span className="text-gray-700 font-medium">{currentUser.location}</span>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function App() {
+            const [activeTab, setActiveTab] = useState('map');
+            return (
+                <AppProvider>
+                    <div className="min-h-screen">
+                        <Header activeTab={activeTab} setActiveTab={setActiveTab} />
+                        <main className="max-w-7xl mx-auto px-4 py-8">
+                            <div className="fade-in">
+                                {activeTab === 'map' && <MapView />}
+                                {activeTab === 'report' && <ReportForm />}
+                                {activeTab === 'dashboard' && <Dashboard />}
+                                {activeTab === 'leaderboard' && <Leaderboard />}
+                                {activeTab === 'chat' && <ChatBot />}
+                                {activeTab === 'admin' && <AdminPanel />}
+                                {activeTab === 'profile' && <Profile />}
+                            </div>
+                        </main>
+                        <HygieneTips />
+                        <footer className="text-center py-6 text-gray-600 text-sm font-medium">
+                            <p>Built with 💙 for Bengaluru's Water & Sanitation | AquaWatch © 2024</p>
+                        </footer>
+                    </div>
+                </AppProvider>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
