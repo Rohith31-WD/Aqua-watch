@@ -1,21 +1,20 @@
 import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
 
 export default defineConfig({
+  plugins: [react()],
   server: {
     host: true,
     port: 5175,
     open: true,
     strictPort: true
   },
-  // Explicitly define the project root, assuming index.html is here
   root: '.',
-  // Define the directory for static assets
   publicDir: 'public',
-  // Configure the build output
   build: {
-    outDir: 'dist', // Output directory for production build
+    outDir: 'dist',
     rollupOptions: {
-      input: './index.html' // Specify the main entry HTML file
+      input: './index.html'
     }
   }
 })

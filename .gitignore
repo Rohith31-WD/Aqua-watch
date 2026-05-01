@@ -57,3 +57,4 @@ coverage/
 *.bak
 *.swp
 .sass-cache/
+.netlify/
