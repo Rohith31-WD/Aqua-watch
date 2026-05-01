@@ -78,9 +78,6 @@ aquawatch/
 ├── .env.example           # Environment variables template
 ├── README.md              # This file
 ├── ARCHITECTURE.md        # System design documentation
-├── CHANGELOG.md           # Version history
-├── CONTRIBUTING.md        # Contribution guidelines
-├── CLAUDE.md              # AI agent conventions
 ├── task_plan.md           # Development task tracking
 └── docs/
     └── decisions/         # Architecture Decision Records
