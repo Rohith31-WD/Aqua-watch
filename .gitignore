@@ -39,6 +39,9 @@ temp/
 
 # Generated files
 generated/
+deepseek data base/
+deepseek_markdown_*.md
+deepseek_*.md
 
 # Secrets
 secret/

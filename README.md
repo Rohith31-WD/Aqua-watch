@@ -180,25 +180,15 @@ After any code change:
 
 See [docs/LIMITATIONS.md](./docs/LIMITATIONS.md) for detailed limitations.
 
-## 📄 Documentation
-
-| Document | Purpose |
-|----------|---------|
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | System design and component structure |
-| [docs/decisions/](./docs/decisions/) | Architecture Decision Records (ADRs) |
-| [CLAUDE.md](./CLAUDE.md) | AI agent conventions and rules |
-| [CHANGELOG.md](./CHANGELOG.md) | Version history and changes |
-| [CONTRIBUTING.md](./CONTRIBUTING.md) | How to contribute |
-
 ## 🔗 GitHub Repository
 
-- **URL**: https://github.com/shabeerpasha-cyber/aquawatch
-- **Branch**: master
+- **URL**: https://github.com/Rohith31-WD/Aqua-Watch
+- **Branch**: main
 - **Remote**: origin
 
 ### Push After Every Session
 ```bash
-git add -A && git commit -m "Session update: <changes>" && git push origin master
+git add -A && git commit -m "Session update: <changes>" && git push origin main
 ```
 
 ## 📄 License
@@ -206,6 +196,8 @@ git add -A && git commit -m "Session update: <changes>" && git push origin maste
 MIT License - Created for Bengaluru Water & Sanitation Monitoring.
 
 ## 👥 Author
+
+Rohith31-WD
 
 Built with 💙 for Bengaluru's community water safety.
 
